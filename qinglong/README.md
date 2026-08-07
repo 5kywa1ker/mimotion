@@ -110,6 +110,11 @@ task /ql/data/scripts/mimotion/qinglong/mimotion.py
 | `PUSH_WECHAT_WEBHOOK_KEY` | 否 | 企业微信机器人 Webhook key |
 | `TELEGRAM_BOT_TOKEN` | 否 | Telegram 机器人 token |
 | `TELEGRAM_CHAT_ID` | 否 | Telegram chat ID |
+| `SERVERCHAN_KEY` | 否 | Server酱（ServerChan3）SendKey，[sct.ftqq.com](https://sct.ftqq.com/) 获取 |
+| `BARK_KEY` | 否 | Bark（iOS）设备 key，支持填完整地址（如 `https://api.day.app/xxx`）以使用自建服务 |
+| `DINGTALK_TOKEN` | 否 | 钉钉群机器人 access_token |
+| `DINGTALK_SECRET` | 否 | 钉钉机器人加签密钥（安全设置勾选"加签"时必填，未勾选可留空） |
+| `FEISHU_WEBHOOK` | 否 | 飞书群机器人 webhook 完整地址 |
 | `SLEEP_GAP` | 否 | 多账号执行间隔（秒），默认 5 |
 | `USE_CONCURRENT` | 否 | 是否多线程执行，设为 `True` 启用 |
 

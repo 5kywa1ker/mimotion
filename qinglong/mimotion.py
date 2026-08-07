@@ -326,7 +326,12 @@ if __name__ == "__main__":
         push_plus_max=get_int_value_default(config, 'PUSH_PLUS_MAX', 30),
         push_wechat_webhook_key=config.get('PUSH_WECHAT_WEBHOOK_KEY'),
         telegram_bot_token=config.get('TELEGRAM_BOT_TOKEN'),
-        telegram_chat_id=config.get('TELEGRAM_CHAT_ID')
+        telegram_chat_id=config.get('TELEGRAM_CHAT_ID'),
+        serverchan_key=config.get('SERVERCHAN_KEY'),
+        bark_key=config.get('BARK_KEY'),
+        dingtalk_token=config.get('DINGTALK_TOKEN'),
+        dingtalk_secret=config.get('DINGTALK_SECRET'),
+        feishu_webhook=config.get('FEISHU_WEBHOOK')
     )
     sleep_seconds = config.get('SLEEP_GAP')
     if sleep_seconds is None or sleep_seconds == '':
