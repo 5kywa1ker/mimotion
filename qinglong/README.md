@@ -77,7 +77,7 @@ task /ql/data/scripts/mimotion/qinglong/mimotion.py
 
 ## CONFIG 配置说明
 
-`MIMOTION_CONFIG` 的值为 JSON 格式字符串：
+`MIMOTION_CONFIG` 的值为 JSON 格式字符串，**支持三种写法**：单行紧凑格式、多行格式、以及青龙面板自动转义后的字面 `\n` 格式（脚本已全部兼容，可直接在面板中多行粘贴）：
 
 ```json
 {
@@ -167,3 +167,4 @@ task /ql/data/scripts/mimotion/qinglong/mimotion.py
 | token 丢失 | 容器重建 | 使用持久化路径存储 |
 | 推送失败 | token/key 配置错误 | 检查推送相关配置 |
 | 依赖缺失 | 未安装 Python 依赖 | 在依赖管理中添加 |
+| CONFIG格式不正确 | 环境变量中换行被转义为字面 `\n` | 已自动兼容，更新脚本到最新版即可 |

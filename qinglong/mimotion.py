@@ -311,6 +311,8 @@ if __name__ == "__main__":
     # region 初始化参数
     config = dict()
     try:
+        # 兼容青龙面板环境变量中换行/制表符被转义为字面量（如 \n）的情况
+        config_str = config_str.strip().replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
         config = dict(json.loads(config_str))
     except:
         print("CONFIG格式不正确，请检查配置，请严格按照JSON格式：使用双引号包裹字段和值，逗号不能多也不能少")
