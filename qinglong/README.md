@@ -33,13 +33,27 @@
 
 ### 方式二：订阅仓库
 
-如果你有维护的 Git 仓库，可以在青龙面板中添加订阅，白名单选择以下文件：
+如果你有维护的 Git 仓库，可以在青龙面板「订阅管理」中添加订阅：
+
+1. **链接**：填写仓库 Git 地址，如 `https://github.com/5kywa1ker/mimotion.git`
+2. **白名单**：填写正则表达式（每行一条，按仓库内文件相对路径匹配），只拉取 `qinglong/` 文件夹：
+   ```
+   ^qinglong/.*\.py$
+   ```
+   如果还想把 README 也拉下来，可以放宽为：
+   ```
+   ^qinglong/
+   ```
+3. **定时类型**：按需选择，建议 `interval` 或 `cron`（例如每天凌晨同步一次：`0 3 * * *`）
+
+拉取后的文件会保留仓库内的目录结构，保存在：
 ```
-mimotion.py
-util/__init__.py
-util/aes_help.py
-util/zepp_helper.py
-util/push_util.py
+/ql/data/scripts/mimotion/qinglong/
+```
+
+对应的定时任务命令应改为：
+```
+task /ql/data/scripts/mimotion/qinglong/mimotion.py
 ```
 
 ## 环境变量配置
