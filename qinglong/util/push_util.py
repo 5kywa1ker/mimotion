@@ -178,21 +178,38 @@ def push_serverchan(key, title, content):
         print(f"server酱推送发生未知异常: {e}")
 
 
+def _parse_bark_key(key):
+    """解析BARK_KEY，兼容：纯key / 完整URL / URL末尾带push路径段"""
+    key_str = str(key).strip().rstrip("/")
+    if key_str.startswith("http"):
+        scheme, rest = key_str.split("://", 1)
+        base = f"{scheme}://{rest.split('/')[0]}"
+        segments = [s for s in rest.split("/")[1:] if s]
+    else:
+        base = "https://api.day.app"
+        segments = [s for s in key_str.split("/") if s]
+    # 设备key取最后一段，末尾为push（用户填了API地址）时取倒数第二段
+    if not segments:
+        return base, None
+    if segments[-1].lower() == "push":
+        if len(segments) >= 2:
+            return base, segments[-2]
+        return base, None
+    return base, segments[-1]
+
+
 def push_bark(key, title, content):
     """
     推送Bark（iOS），支持官方服务或自建服务
-    :param key: Bark设备key（如 abc123）或完整地址（如 https://api.day.app/abc123）
+    :param key: Bark设备key（如 abc123）或完整地址（如 https://api.day.app/abc123，或 https://自建域名/abc123/push）
     :param title: 推送标题
     :param content: 推送内容
     :return: none
     """
-    if str(key).startswith("http"):
-        # 支持自建 Bark 服务完整地址
-        device_key = str(key).rstrip("/").split("/")[-1]
-        push_url = str(key).rsplit("/", 1)[0] + "/push"
-    else:
-        device_key = key
-        push_url = "https://api.day.app/push"
+    base, device_key = _parse_bark_key(key)
+    if not device_key:
+        print("bark配置错误：无法从BARK_KEY解析出设备key，请填写设备key或包含设备key的完整地址（如 https://api.day.app/你的key）")
+        return
     data = {
         "device_key": device_key,
         "title": title,
@@ -200,7 +217,11 @@ def push_bark(key, title, content):
         "level": "active"
     }
     try:
-        response = requests.post(push_url, json=data)
+        response = requests.post(f"{base}/push", json=data)
+        if response.status_code in (404, 405):
+            # 老版本Bark服务端不支持POST /push接口，回退到路径方式
+            fallback_url = f"{base}/{device_key}/{urllib.parse.quote(title)}/{urllib.parse.quote(content)}"
+            response = requests.get(fallback_url)
         if response.status_code == 200:
             json_res = response.json()
             if json_res.get('code') == 200:
@@ -208,7 +229,7 @@ def push_bark(key, title, content):
             else:
                 print(f"bark推送失败：{json_res.get('message', '未知错误')}")
         else:
-            print(f"bark推送失败: {response.status_code}")
+            print(f"bark推送失败: {response.status_code} {response.text[:100]}")
     except requests.exceptions.RequestException as e:
         print(f"bark推送异常: {e}")
     except Exception as e:

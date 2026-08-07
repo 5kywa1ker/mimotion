@@ -111,7 +111,7 @@ task /ql/data/scripts/mimotion/qinglong/mimotion.py
 | `TELEGRAM_BOT_TOKEN` | 否 | Telegram 机器人 token |
 | `TELEGRAM_CHAT_ID` | 否 | Telegram chat ID |
 | `SERVERCHAN_KEY` | 否 | Server酱（ServerChan3）SendKey，[sct.ftqq.com](https://sct.ftqq.com/) 获取 |
-| `BARK_KEY` | 否 | Bark（iOS）设备 key，支持填完整地址（如 `https://api.day.app/xxx`）以使用自建服务 |
+| `BARK_KEY` | 否 | Bark（iOS）设备 key（如 `abc123`）或完整地址（如 `https://api.day.app/abc123`），自建服务填自建域名完整地址；注意不要只填推送地址（如 `https://api.day.app/push`） |
 | `DINGTALK_TOKEN` | 否 | 钉钉群机器人 access_token |
 | `DINGTALK_SECRET` | 否 | 钉钉机器人加签密钥（安全设置勾选"加签"时必填，未勾选可留空） |
 | `FEISHU_WEBHOOK` | 否 | 飞书群机器人 webhook 完整地址 |
