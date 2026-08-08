@@ -6,6 +6,7 @@
   MIMOTION_CONFIG  - JSON格式的用户配置（必填）
   MIMOTION_AES_KEY - 16位字符密钥，用于加密保存登录token（推荐配置）
   MIMOTION_DATA_PATH - token持久化文件路径（可选，默认为脚本同目录）
+  STEP - 固定步数（可选，优先于随机步数逻辑，方便测试；也可在 CONFIG 中配置 "STEP" 字段）
 
 CONFIG 格式示例：
 {
@@ -352,6 +353,18 @@ if __name__ == "__main__":
         print("未正确配置账号密码（USER/PWD），无法执行")
         exit(1)
     min_step, max_step = get_min_max_by_time()
+    # 固定步数：优先读取 STEP 环境变量，其次 CONFIG 中的 STEP 字段（方便测试）
+    fixed_step = os.environ.get("STEP") or config.get('STEP')
+    if fixed_step is not None and str(fixed_step).strip() != '':
+        try:
+            step_int = int(fixed_step)
+            if step_int > 0:
+                print(f"检测到固定步数 STEP={step_int}，跳过时间比例随机计算")
+                min_step = max_step = step_int
+            else:
+                print(f"STEP 必须为正整数（当前：{fixed_step}），忽略并使用随机步数")
+        except (ValueError, TypeError):
+            print(f"STEP 不是有效数字（当前：{fixed_step}），忽略并使用随机步数")
     use_concurrent = config.get('USE_CONCURRENT')
     if use_concurrent is not None and str(use_concurrent).lower() == 'true':
         use_concurrent = True

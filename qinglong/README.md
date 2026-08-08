@@ -72,6 +72,7 @@ task /ql/data/scripts/mimotion/qinglong/mimotion.py
 |--------|------|--------|
 | `MIMOTION_AES_KEY` | 16位字符密钥，加密保存登录token | 不设置则每次重新登录 |
 | `MIMOTION_DATA_PATH` | token持久化文件路径 | 脚本同目录 |
+| `STEP` | 固定步数，优先于随机步数逻辑（测试用） | 不设置则按时间比例随机 |
 
 > **兼容说明**：脚本同时支持 `CONFIG` 和 `AES_KEY` 变量名，优先使用 `MIMOTION_CONFIG` / `MIMOTION_AES_KEY`。
 
@@ -104,6 +105,7 @@ task /ql/data/scripts/mimotion/qinglong/mimotion.py
 | `PWD` | 是 | 小米运动登录密码，多账号用 `#` 分隔 |
 | `MIN_STEP` | 否 | 最小步数，默认 18000 |
 | `MAX_STEP` | 否 | 最大步数，默认 25000 |
+| `STEP` | 否 | 固定步数（正整数），优先于随机步数逻辑，方便测试；也可通过环境变量 `STEP` 配置 |
 | `PUSH_PLUS_TOKEN` | 否 | PushPlus 推送 token |
 | `PUSH_PLUS_HOUR` | 否 | 只在指定整点推送（如设置 21，只在北京时间 21 点推送） |
 | `PUSH_PLUS_MAX` | 否 | 推送最大账号详情数，默认 30 |
