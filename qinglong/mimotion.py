@@ -47,9 +47,14 @@ import util.push_util as push_util
 
 
 # 获取默认值转int
+# 非数字值回退默认值，避免配置错误阻断主流程
 def get_int_value_default(_config: dict, _key, default):
     _config.setdefault(_key, default)
-    return int(_config.get(_key))
+    try:
+        return int(_config.get(_key))
+    except (ValueError, TypeError):
+        print(f"配置项 {_key} 不是有效数字（值：{_config.get(_key)}），使用默认值 {default}")
+        return default
 
 
 # 获取当前时间对应的最大和最小步数
@@ -275,7 +280,11 @@ def execute():
                 success_count += 1
         summary = f"\n执行账号总数{total}，成功：{success_count}，失败：{total - success_count}"
         print(summary)
-        push_util.push_results(push_results, summary, push_config)
+        try:
+            # 推送失败不影响刷步数主流程，仅打印异常
+            push_util.push_results(push_results, summary, push_config)
+        except Exception:
+            print(f"推送通知异常（不影响刷步数结果）：{traceback.format_exc()}")
     else:
         print(f"账号数长度[{len(user_list)}]和密码数长度[{len(passwd_list)}]不匹配，跳过执行")
         exit(1)

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import time
+import traceback
 import urllib.parse
 
 import requests
@@ -39,7 +40,11 @@ class PushConfig:
                  feishu_webhook=None):
         self.push_plus_token = push_plus_token
         self.push_plus_hour = push_plus_hour
-        self.push_plus_max = int(push_plus_max) if push_plus_max else 30
+        try:
+            self.push_plus_max = int(push_plus_max) if push_plus_max else 30
+        except (ValueError, TypeError):
+            print(f"PUSH_PLUS_MAX 不是有效数字（值：{push_plus_max}），使用默认值 30")
+            self.push_plus_max = 30
         self.push_wechat_webhook_key = push_wechat_webhook_key
         self.telegram_bot_token = telegram_bot_token
         self.telegram_chat_id = telegram_chat_id
@@ -67,7 +72,7 @@ def push_plus(token, title, content):
         "channel": "wechat"
     }
     try:
-        response = requests.post(requestUrl, data=data)
+        response = requests.post(requestUrl, data=data, timeout=15)
         if response.status_code == 200:
             json_res = response.json()
             print(f"pushplus推送完毕：{json_res['code']}-{json_res['msg']}")
@@ -99,7 +104,7 @@ def push_wechat_webhook(key, title, content):
     }
 
     try:
-        response = requests.post(requestUrl, json=payload)
+        response = requests.post(requestUrl, json=payload, timeout=15)
         if response.status_code == 200:
             json_res = response.json()
             if json_res.get('errcode') == 0:
@@ -128,13 +133,13 @@ def push_telegram_bot(bot_token, chat_id, content):
     """
     requestUrl = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-    payload = {
-        "chat_id": int(chat_id),
-        "text": content,
-        "parse_mode": "HTML"
-    }
     try:
-        response = requests.post(requestUrl, json=payload)
+        payload = {
+            "chat_id": int(chat_id),
+            "text": content,
+            "parse_mode": "HTML"
+        }
+        response = requests.post(requestUrl, json=payload, timeout=15)
         if response.status_code == 200:
             json_res = response.json()
             if json_res.get('ok') is True:
@@ -163,7 +168,7 @@ def push_serverchan(key, title, content):
         "desp": content
     }
     try:
-        response = requests.post(requestUrl, data=data)
+        response = requests.post(requestUrl, data=data, timeout=15)
         if response.status_code == 200:
             json_res = response.json()
             if json_res.get('code') == 0:
@@ -217,11 +222,11 @@ def push_bark(key, title, content):
         "level": "active"
     }
     try:
-        response = requests.post(f"{base}/push", json=data)
+        response = requests.post(f"{base}/push", json=data, timeout=15)
         if response.status_code in (404, 405):
             # 老版本Bark服务端不支持POST /push接口，回退到路径方式
             fallback_url = f"{base}/{device_key}/{urllib.parse.quote(title)}/{urllib.parse.quote(content)}"
-            response = requests.get(fallback_url)
+            response = requests.get(fallback_url, timeout=15)
         if response.status_code == 200:
             json_res = response.json()
             if json_res.get('code') == 200:
@@ -257,7 +262,7 @@ def push_dingtalk(token, secret, title, content):
         "text": {"content": f"{title}\n{content}"}
     }
     try:
-        response = requests.post(requestUrl, json=payload)
+        response = requests.post(requestUrl, json=payload, timeout=15)
         if response.status_code == 200:
             json_res = response.json()
             if json_res.get('errcode') == 0:
@@ -285,7 +290,7 @@ def push_feishu(webhook, title, content):
         "content": {"text": f"{title}\n{content}"}
     }
     try:
-        response = requests.post(webhook, json=payload)
+        response = requests.post(webhook, json=payload, timeout=15)
         if response.status_code == 200:
             json_res = response.json()
             if json_res.get('code') == 0:
@@ -307,25 +312,33 @@ def build_push_content(exec_results, summary, config: PushConfig) -> str:
         content += '\n账号数量过多，详细情况请前往青龙面板日志中查看'
     else:
         for exec_result in exec_results:
-            success = exec_result['success']
+            success = exec_result.get('success')
             if success is not None and success is True:
-                content += f'\n- 账号：{exec_result["user"]}刷步数成功，接口返回：{exec_result["msg"]}'
+                content += f'\n- 账号：{exec_result.get("user", "?")}刷步数成功，接口返回：{exec_result.get("msg", "")}'
             else:
-                content += f'\n- 账号：{exec_result["user"]}刷步数失败，失败原因：{exec_result["msg"]}'
+                content += f'\n- 账号：{exec_result.get("user", "?")}刷步数失败，失败原因：{exec_result.get("msg", "")}'
     return content
+
+
+def _safe_push(push_func, *args):
+    """单渠道推送容错，一个渠道异常不影响其他渠道"""
+    try:
+        push_func(*args)
+    except Exception:
+        print(f"推送渠道异常（已跳过，不影响其他渠道）：{traceback.format_exc()}")
 
 
 def push_results(exec_results, summary, config: PushConfig):
     """推送所有结果"""
     if not_in_push_time_range(config):
         return
-    push_to_push_plus(exec_results, summary, config)
-    push_to_wechat_webhook(exec_results, summary, config)
-    push_to_telegram_bot(exec_results, summary, config)
-    push_to_serverchan(exec_results, summary, config)
-    push_to_bark(exec_results, summary, config)
-    push_to_dingtalk(exec_results, summary, config)
-    push_to_feishu(exec_results, summary, config)
+    _safe_push(push_to_push_plus, exec_results, summary, config)
+    _safe_push(push_to_wechat_webhook, exec_results, summary, config)
+    _safe_push(push_to_telegram_bot, exec_results, summary, config)
+    _safe_push(push_to_serverchan, exec_results, summary, config)
+    _safe_push(push_to_bark, exec_results, summary, config)
+    _safe_push(push_to_dingtalk, exec_results, summary, config)
+    _safe_push(push_to_feishu, exec_results, summary, config)
 
 
 def not_in_push_time_range(config: PushConfig) -> bool:
