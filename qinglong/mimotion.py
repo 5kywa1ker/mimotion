@@ -130,9 +130,19 @@ class MiMotionRunner:
             if self.device_id is None:
                 self.device_id = str(uuid.uuid4())
                 user_token_info["device_id"] = self.device_id
+            # 每次运行优先用 login_token 换新 app_token：缓存的 app_token 能通过 check_app_token
+            # 校验（getUserInfo 只验签名不验新鲜度），但隔天可能对写接口静默失效，
+            # 表现为步数提交返回 success 却不生效
+            fresh_token, grant_msg = zeppHelper.grant_app_token(login_token)
+            if fresh_token:
+                self.log_str += "每次运行刷新app_token成功\n"
+                user_token_info["app_token"] = fresh_token
+                user_token_info["app_token_time"] = get_time()
+                return fresh_token
+            self.log_str += f"刷新app_token失败（{grant_msg}），校验缓存的app_token是否可用\n"
             ok, msg = zeppHelper.check_app_token(app_token, self.user_id)
             if ok:
-                self.log_str += "使用加密保存的app_token\n"
+                self.log_str += "使用缓存的app_token\n"
                 return app_token
             else:
                 self.log_str += f"app_token失效 重新获取 last grant time: {user_token_info.get('app_token_time')}\n"
@@ -152,7 +162,7 @@ class MiMotionRunner:
                         self.user_id = user_id
                         return app_token
                 else:
-                    self.log_str += "重新获取app_token成功\n"
+                    self.log_str += "用login_token重新获取app_token成功\n"
                     user_token_info["app_token"] = app_token
                     user_token_info["app_token_time"] = get_time()
                     return app_token
