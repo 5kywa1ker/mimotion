@@ -125,52 +125,34 @@ class MiMotionRunner:
             access_token = user_token_info.get("access_token")
             login_token = user_token_info.get("login_token")
             app_token = user_token_info.get("app_token")
+            login_token_time = float(user_token_info.get("login_token_time", 0))
+            current_time = float(get_time())
+
             self.device_id = user_token_info.get("device_id")
             self.user_id = user_token_info.get("user_id")
             if self.device_id is None:
                 self.device_id = str(uuid.uuid4())
                 user_token_info["device_id"] = self.device_id
-            # 每次运行优先用 login_token 换新 app_token：缓存的 app_token 能通过 check_app_token
-            # 校验（getUserInfo 只验签名不验新鲜度），但隔天可能对写接口静默失效，
-            # 表现为步数提交返回 success 却不生效
-            fresh_token, grant_msg = zeppHelper.grant_app_token(login_token)
-            if fresh_token:
-                self.log_str += "每次运行刷新app_token成功\n"
-                user_token_info["app_token"] = fresh_token
-                user_token_info["app_token_time"] = get_time()
-                return fresh_token
-            self.log_str += f"刷新app_token失败（{grant_msg}），校验缓存的app_token是否可用\n"
-            ok, msg = zeppHelper.check_app_token(app_token, self.user_id)
-            if ok:
-                self.log_str += "使用缓存的app_token\n"
-                return app_token
-            else:
-                self.log_str += f"app_token失效 重新获取 last grant time: {user_token_info.get('app_token_time')}\n"
-                app_token, msg = zeppHelper.grant_app_token(login_token)
-                if app_token is None:
-                    self.log_str += f"login_token 失效 重新获取 last grant time: {user_token_info.get('login_token_time')}\n"
-                    login_token, app_token, user_id, msg = zeppHelper.grant_login_tokens(access_token, self.device_id,
-                                                                                         self.is_phone)
-                    if login_token is None:
-                        self.log_str += f"access_token 已失效：{msg} last grant time:{user_token_info.get('access_token_time')}\n"
-                    else:
-                        user_token_info["login_token"] = login_token
-                        user_token_info["app_token"] = app_token
-                        user_token_info["user_id"] = user_id
-                        user_token_info["login_token_time"] = get_time()
-                        user_token_info["app_token_time"] = get_time()
-                        self.user_id = user_id
-                        return app_token
-                else:
-                    self.log_str += "用login_token重新获取app_token成功\n"
-                    user_token_info["app_token"] = app_token
-                    user_token_info["app_token_time"] = get_time()
-                    return app_token
 
-        # access_token 失效 或者没有保存加密数据
+            # 判断 login_token 是否在 18 小时内（18 * 3600 * 1000 ms）
+            # 华米后端 Session 超过 18~24 小时会导致写接口静默失效，超过 18 小时强制全量重新登录
+            is_token_fresh = (current_time - login_token_time) < (18 * 3600 * 1000)
+
+            if is_token_fresh and login_token:
+                fresh_token, grant_msg = zeppHelper.grant_app_token(login_token)
+                if fresh_token:
+                    self.log_str += "使用 login_token 刷新 app_token 成功\n"
+                    user_token_info["app_token"] = fresh_token
+                    user_token_info["app_token_time"] = get_time()
+                    return fresh_token
+                self.log_str += f"刷新 app_token 失败（{grant_msg}），准备重新登录账号\n"
+            else:
+                self.log_str += "缓存的 Token 已超过 18 小时，准备重新登录账号\n"
+
+        # 任何失败、缓存过期或未保存 Token 时，均穿透到此处执行账号密码全量重新登录
         access_token, msg = zeppHelper.login_access_token(self.user, self.password)
         if access_token is None:
-            self.log_str += "登录获取accessToken失败：%s" % msg
+            self.log_str += "登录获取 accessToken 失败：%s" % msg
             return None
         login_token, app_token, user_id, msg = zeppHelper.grant_login_tokens(access_token, self.device_id,
                                                                              self.is_phone)
@@ -186,8 +168,6 @@ class MiMotionRunner:
         user_token_info["access_token_time"] = get_time()
         user_token_info["login_token_time"] = get_time()
         user_token_info["app_token_time"] = get_time()
-        if self.device_id is None:
-            self.device_id = uuid.uuid4()
         user_token_info["device_id"] = self.device_id
         self.user_id = user_id
         user_tokens[self.user] = user_token_info
