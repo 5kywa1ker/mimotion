@@ -25,13 +25,15 @@ class PushConfig:
                  push_plus_max=30,
                  push_wechat_webhook_key=None,
                  telegram_bot_token=None,
-                 telegram_chat_id=None):
+                 telegram_chat_id=None,
+                 bark_key=None):
         self.push_plus_token = push_plus_token
         self.push_plus_hour = push_plus_hour
         self.push_plus_max = int(push_plus_max) if push_plus_max else 30
         self.push_wechat_webhook_key = push_wechat_webhook_key
         self.telegram_bot_token = telegram_bot_token
         self.telegram_chat_id = telegram_chat_id
+        self.bark_key = bark_key
 
 
 def push_plus(token, title, content):
@@ -135,6 +137,66 @@ def push_telegram_bot(bot_token, chat_id, content):
         print(f"telegram bot推送发生未知异常: {e}")
 
 
+def _parse_bark_key(key):
+    """解析BARK_KEY，兼容：纯key / 完整URL / URL末尾带push路径段"""
+    import urllib.parse
+    key_str = str(key).strip().rstrip("/")
+    if key_str.startswith("http"):
+        scheme, rest = key_str.split("://", 1)
+        base = f"{scheme}://{rest.split('/')[0]}"
+        segments = [s for s in rest.split("/")[1:] if s]
+    else:
+        base = "https://api.day.app"
+        segments = [s for s in key_str.split("/") if s]
+    # 设备key取最后一段，末尾为push（用户填了API地址）时取倒数第二段
+    if not segments:
+        return base, None
+    if segments[-1].lower() == "push":
+        if len(segments) >= 2:
+            return base, segments[-2]
+        return base, None
+    return base, segments[-1]
+
+
+def push_bark(key, title, content):
+    """
+    推送Bark（iOS），支持官方服务或自建服务
+    :param key: Bark设备key（如 abc123）或完整地址（如 https://api.day.app/abc123，或 https://自建域名/abc123/push）
+    :param title: 推送标题
+    :param content: 推送内容
+    :return: none
+    """
+    import urllib.parse
+    base, device_key = _parse_bark_key(key)
+    if not device_key:
+        print("bark配置错误：无法从BARK_KEY解析出设备key，请填写设备key或包含设备key的完整地址（如 https://api.day.app/你的key）")
+        return
+    data = {
+        "device_key": device_key,
+        "title": title,
+        "body": content,
+        "level": "active"
+    }
+    try:
+        response = requests.post(f"{base}/push", json=data, timeout=15)
+        if response.status_code in (404, 405):
+            # 老版本Bark服务端不支持POST /push接口，回退到路径方式
+            fallback_url = f"{base}/{device_key}/{urllib.parse.quote(title)}/{urllib.parse.quote(content)}"
+            response = requests.get(fallback_url, timeout=15)
+        if response.status_code == 200:
+            json_res = response.json()
+            if json_res.get('code') == 200:
+                print("bark推送完毕")
+            else:
+                print(f"bark推送失败：{json_res.get('message', '未知错误')}")
+        else:
+            print(f"bark推送失败: {response.status_code} {response.text[:100]}")
+    except requests.exceptions.RequestException as e:
+        print(f"bark推送异常: {e}")
+    except Exception as e:
+        print(f"bark推送发生未知异常: {e}")
+
+
 def push_results(exec_results, summary, config: PushConfig):
     """推送所有结果"""
     if not_in_push_time_range(config):
@@ -142,6 +204,7 @@ def push_results(exec_results, summary, config: PushConfig):
     push_to_push_plus(exec_results, summary, config)
     push_to_wechat_webhook(exec_results, summary, config)
     push_to_telegram_bot(exec_results, summary, config)
+    push_to_bark(exec_results, summary, config)
 
 
 def not_in_push_time_range(config: PushConfig) -> bool:
@@ -239,3 +302,26 @@ def push_to_telegram_bot(exec_results, summary, config: PushConfig):
         push_telegram_bot(config.telegram_bot_token, config.telegram_chat_id, html)
     else:
         print("未配置 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID 跳过telegram推送")
+
+
+def build_push_content(exec_results, summary, config: PushConfig) -> str:
+    """组装纯文本推送内容"""
+    content = f'{summary}'
+    if len(exec_results) >= config.push_plus_max:
+        content += '\n账号数量过多，详细情况请前往github actions中查看'
+    else:
+        for exec_result in exec_results:
+            success = exec_result.get('success')
+            if success is not None and success is True:
+                content += f'\n- 账号：{exec_result.get("user", "?")}刷步数成功，接口返回：{exec_result.get("msg", "")}'
+            else:
+                content += f'\n- 账号：{exec_result.get("user", "?")}刷步数失败，失败原因：{exec_result.get("msg", "")}'
+    return content
+
+
+def push_to_bark(exec_results, summary, config: PushConfig):
+    """推送到Bark（iOS）"""
+    if config.bark_key and config.bark_key != '' and config.bark_key != 'NO':
+        push_bark(config.bark_key, f"{format_now()} 刷步数通知", build_push_content(exec_results, summary, config))
+    else:
+        print("未配置 BARK_KEY 跳过bark推送")
