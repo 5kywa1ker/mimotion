@@ -37,6 +37,9 @@ pycryptodome
 
 在青龙面板 **环境变量** 页面添加。有两种方式，**二选一**即可：
 
+> **字段归属速记**：`USER、PWD、MIN_STEP、MAX_STEP、SLEEP_GAP、USE_CONCURRENT` 以及所有推送配置（`PUSH_PLUS_*`、`PUSH_WECHAT_WEBHOOK_KEY`、`TELEGRAM_*`、`BARK_KEY`）都是 **CONFIG（JSON）里的字段**；用独立变量方式时，它们各自单独建一个变量。
+> **`AES_KEY` 是例外：无论哪种方式，`AES_KEY` 都单独作为一个环境变量，绝不写进 CONFIG 的 JSON 里**（脚本只从环境变量读取它，写进 JSON 不会生效）。
+
 ### 方式 A：配置单个 `CONFIG` 变量（与 GA 版 Secret 完全一致）
 
 如果你以前用 GitHub Actions 版，直接把你 Secret 里 `CONFIG` 的值原样填到青龙的 `CONFIG` 环境变量里即可：
@@ -53,6 +56,7 @@ pycryptodome
   "PUSH_WECHAT_WEBHOOK_KEY": "",
   "TELEGRAM_BOT_TOKEN": "",
   "TELEGRAM_CHAT_ID": "",
+  "BARK_KEY": "https://api.day.app/你的key",
   "SLEEP_GAP": "5",
   "USE_CONCURRENT": "False"
 }
@@ -83,6 +87,7 @@ pycryptodome
 
 ### AES_KEY 与 token 缓存（重要）
 
+- **`AES_KEY` 是独立环境变量，不要写进 `CONFIG` 的 JSON 里**：脚本只认 `os.environ` 里的 `AES_KEY`，写在 CONFIG 里不会生效。
 - 配置 `AES_KEY`（注意**必须恰好 16 个字符**，不要用中文）后，程序会把每个账号的登录 token 加密保存到脚本同目录的 `encrypted_tokens.data`，下次运行直接复用，不必反复登录。
 - 第一次配置 `AES_KEY` 时如果提示“密钥不正确或者加密内容损坏 放弃token”，属于正常现象（旧文件用的是别的密钥），忽略即可，运行一次后会自动生成新密钥的文件。
 - **从 GA 版迁移**：GA 版仓库里的 `encrypted_tokens.data` 用的是同样的 AES 方式加密，直接把该文件放到青龙脚本同目录即可无缝延续，无需重新登录。
