@@ -5,6 +5,9 @@
 [![GitHub stars](https://img.shields.io/github/stars/TonyJiangWJ/mimotion?style=flat-square)](https://github.com/TonyJiangWJ/mimotion/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/TonyJiangWJ/mimotion?style=flat-square)](https://github.com/TonyJiangWJ/mimotion/issues)
 
+> **青龙面板用户**：请在 [qinglong/README.md](qinglong/README.md) 查看青龙面板单文件版本的部署与使用方法。
+> 青龙版本为单文件脚本 [qinglong/mimotion.py](qinglong/mimotion.py)，核心逻辑（尤其是 token 登录缓存）与 GA 版本完全一致。
+
 ## 小米运动自动刷步数（支持邮箱登录）
 
 - 小米运动自动刷步数，小米运动APP现已改名 `Zepp Life`，为方便说明，后面还是称其为小米运动。但下载注册时请搜索 `Zepp Life`。
