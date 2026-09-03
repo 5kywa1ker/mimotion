@@ -16,6 +16,8 @@
 #
 # 推荐配置 AES_KEY（16位字符串）用于加密保存登录 token，避免每次重新登录。
 # token 缓存文件：encrypted_tokens.data（生成在该脚本所在目录，请定期备份）
+# 同时在该文件中记录每个账号当天最后一次成功提交的步数，用于"步数递增保护"：
+# 同一天内随机下限不低于上次成功值，避免后一次执行步数反而比前一次小。
 # cron 时间请按青龙服务器本地时区修改（下文示例按北京时间整小时执行）
 # cron: 17 0,2,4,6,8,10,12,14,16,18,20,22 * * *
 # =====================================================================
@@ -916,6 +918,12 @@ class MiMotionRunner:
             return None
 
         user_token_info = dict()
+        # 重新登录生成新token信息时，保留上次步数记录，保证步数递增保护不因token失效而丢失
+        old_info = user_tokens.get(self.user)
+        if old_info is not None:
+            for key in ("last_step", "last_step_date"):
+                if old_info.get(key) is not None:
+                    user_token_info[key] = old_info[key]
         user_token_info["access_token"] = access_token
         user_token_info["login_token"] = login_token
         user_token_info["app_token"] = app_token
@@ -938,9 +946,27 @@ class MiMotionRunner:
         if app_token is None:
             return "登陆失败！", False
 
+        # 步数递增保护：随机下限不低于上次成功提交的步数，避免后一次执行步数反而下降
+        token_info = user_tokens.setdefault(self.user, dict())
+        last_step = token_info.get("last_step")
+        # 跨天步数会清零重计，仅同一天（北京时间）的上次步数才作为递增下限
+        if last_step is not None and token_info.get("last_step_date") == get_beijing_time().strftime("%Y-%m-%d"):
+            if min_step <= last_step:
+                min_step = last_step + 1
+            if min_step > max_step:
+                min_step = max_step
         step = str(random.randint(min_step, max_step))
-        self.log_str += f"已设置为随机步数范围({min_step}~{max_step}) 随机值:{step}\n"
+        self.log_str += f"已设置为随机步数范围({min_step}~{max_step})"
+        if last_step is not None:
+            self.log_str += f" 上次步数:{last_step}"
+        self.log_str += f" 随机值:{step}\n"
         ok, msg = post_fake_brand_data(step, app_token, self.user_id)
+        if ok:
+            # 提交成功才记录，失败不影响下次的递增下限
+            token_info["last_step"] = int(step)
+            token_info["last_step_date"] = get_beijing_time().strftime("%Y-%m-%d")
+            if encrypt_support:
+                persist_user_tokens()
         return f"修改步数（{step}）[" + msg + "]", ok
 
 
